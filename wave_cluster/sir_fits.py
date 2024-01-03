@@ -1,7 +1,7 @@
 import numpy as np
-from disease_model import *
-from ode_model import *
-from non_linear_fit import *
+from .disease_model import *
+from .ode_model import *
+from .non_linear_fit import *
 import multiprocessing as mp
 from multiprocessing import Pool
 

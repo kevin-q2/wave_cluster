@@ -1,4 +1,4 @@
-from ode_model import *
+from .ode_model import *
 import numpy as np
 from scipy.optimize import least_squares
 

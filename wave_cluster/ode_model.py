@@ -1,4 +1,4 @@
-from disease_model import *
+from .disease_model import *
 import numpy as np
 from scipy.integrate import odeint
 
