@@ -2,7 +2,7 @@ import numpy as np
 from sklearn.isotonic import IsotonicRegression
 import multiprocessing as mp
 from multiprocessing import Pool
-from .dynamic_segment import *
+from ._dynamic_segment import *
 import time
 
 
@@ -100,7 +100,7 @@ class unimodal_fit_object:
         return errors, wave,c
 '''
 
-class unimodal_fit_object:
+class unimodal_fit:
     def __init__(self, data_vec):
         self.data_vec = data_vec
         self.T = len(self.data_vec)

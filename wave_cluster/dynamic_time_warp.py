@@ -33,7 +33,7 @@ import matplotlib.pyplot as plt
     
 
 
-def dynamic_time_warp(x,y, distance, mult_penalty = [1,1,1], add_penalty = [0,0,0]):
+def dtw(x,y, distance, mult_penalty = [1,1,1], add_penalty = [0,0,0]):
     # Initialize variables
     n = len(x)
     m = len(y)

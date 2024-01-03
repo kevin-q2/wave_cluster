@@ -1,4 +1,4 @@
-from .disease_model import *
+from ._disease_model import *
 import numpy as np
 from scipy.integrate import odeint
 
@@ -29,7 +29,7 @@ from scipy.integrate import odeint
 #########################################################################################################################################
 
 
-class ode_sir(disease_model):
+class sir(disease_model):
     def __init__(self, populations, time_steps, X0, Beta, gamma, alpha = 0, init_sensitivity = None):
         super().__init__(populations, time_steps, X0, Beta, gamma)
         self.init_sensitivity = init_sensitivity

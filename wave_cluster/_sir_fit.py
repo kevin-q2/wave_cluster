@@ -1,7 +1,7 @@
 import numpy as np
-from .disease_model import *
-from .ode_model import *
-from .non_linear_fit import *
+from ._disease_model import *
+from ._sir import *
+from ._non_linear_fit import *
 import multiprocessing as mp
 from multiprocessing import Pool
 
@@ -33,7 +33,7 @@ from multiprocessing import Pool
 #####################################################################################################################
     
     
-class SIR_fit_object:
+class sir_fit:
     def __init__(self, data_vec, population, method = '2-point', initialization = 'auto', initial_window = None):
         self.data_vec = data_vec
         self.population = population
