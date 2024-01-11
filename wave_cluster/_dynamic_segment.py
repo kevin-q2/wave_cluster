@@ -14,7 +14,11 @@ from ._sir_fit import *
 #                   chosen measure of error upon segment data_vec[t1:t2]
 #
 #       segments -- the number of distinct segments to split the data into
+#
 #       segment_Size -- the minimum length a segment can take
+#
+#       error_table2 -- a specialized parameter that I only use for k-modal segmentation (decreasing isotonic error table)
+#
 #  
 #   ATTRIBUTES:
 #       segment_table -- a (segments x (T + 1)) dimensional table where each entry ij corresponds to 
@@ -72,6 +76,7 @@ class dynamic_segment:
             # make room for segments that came before 
             start = k * self.segment_size
             #start = 0
+            
             # make some more room for forthcoming segments
             #end = self.T - (self.segments-(k+1))*self.segment_size
             end = self.T
@@ -140,10 +145,14 @@ class dynamic_segment:
         #return self.cuts
         
         
-    def tester(self, waves, error_func):
+    # used for testing different number of segments, k
+    # each item in seg list should specify the number of segments to use 
+    # and the function will backtrack over the dynamic segment results to find 
+    # the error of using k
+    def tester(self, seg_list, error_func):
         errs = []
         
-        for w in waves:
+        for w in seg_list:
             self.backtrack(w)
             error = error_func(self.cuts)
             errs.append(error)

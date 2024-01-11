@@ -89,12 +89,14 @@ def dtw(x,y, distance, mult_penalty = [1,1,1], add_penalty = [0,0,0]):
 # computed by dynamic_time_warp and plots the traced 
 # path taken across the n x m cost matrix 
 ##################################################
-def permutation_plot(align):
+def permutation_plot(align, ax = None):
     xs = [a[0] for a in align]
     ys = [a[1] for a in align]
-    fig,ax = plt.subplots(1,1)
+    if ax is None:
+        fig,ax = plt.subplots(1,1)
+        
     ax.plot(xs,ys) 
-    plt.show()
+    #plt.show()
 
 
 
@@ -108,8 +110,9 @@ def permutation_plot(align):
 # spacing between x and y in the plot and skips controls 
 # the number of alignment indices skipped. 
 #####################################################
-def align_plot(x,y, align, offset, skips = 2):
-    fig,ax = plt.subplots(1,1, figsize = (14,8))
+def align_plot(x,y, align, offset, skips = 2, ax = None):
+    if ax is None:
+        fig,ax = plt.subplots(1,1, figsize = (14,8))
 
     x_ = np.array(x)
     y_off = np.array(y) + offset
@@ -120,4 +123,4 @@ def align_plot(x,y, align, offset, skips = 2):
     for a in align[::skips]:
         ax.plot([a[0],a[1]], [x_[a[0]], y_off[a[1]]], color = 'black', alpha = 0.4, linestyle = 'dashed', linewidth = 0.75)
     
-    plt.show()
+    #plt.show()

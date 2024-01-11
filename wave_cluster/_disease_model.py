@@ -9,27 +9,25 @@ import numpy as np
 # and towards other locations. For more details please refer to: https://www.math.uh.edu/~jmorgan/Math5341/Assignments/FinalExamPaper.pdf
 #
 #   INPUT:
-#       populations -- A length n vector containing a population count for each location/group
+#       population -- an integer representing a population count
 #
-#       time_steps -- a length n (monotone increasing) vector representing the time-steps over which the SIR process happens 
+#       time_steps -- a length T (monotone increasing) vector representing the time-steps over which the SIR process happens 
 #
-#       X0 -- A length (# of compartments) x n vector, This parameter describes the initial (at time step 0) number
+#       X0 -- A 3 dimensional vector, This parameter describes the initial (at time step 0) number
 #           of susceptible, infected, recovered, or other compartment allocated persons for each location/group. 
-#           In a standard SIR model the first n entries of X0 be S0 (the initial number of susceptible persons for each location),
-#           the next n are I0, and the last n are R0 (infected and recovered respectively)
+#           takes form [S0, I0, R0]
 #
-#       Beta -- The (n x n) spread parameter matrix where each entry Beta[j,i] represents the represents the average number of unique
-#           susceptible individuals from location i that an infected person from location j comes into contact with at every time-step
+#       Beta -- floating point spread parameter which represents the represents the average number of unique
+#           susceptible individuals that an infected person comes into contact with at every time-step
 #
-#       gamma -- A length n recovery parameter with each entry n[i] denoting the rate at which members of population i recover from
+#       gamma -- floating point recovery parameter  denoting the rate at which members of the population recover from
 #                the disease 
 #
-#       type -- the type of compartmental model to be used (Currently only doing SIR models! more to be seen in the future) 
 #
 #   INITIALIZATION: 
 #       set_initial_compartments() -- checks the X0 parameters and appropriately assigns them to compartments
 #
-#       set_beta() -- Ensures the gamma parameter is properly defined
+#       set_beta() -- Ensures the beta parameter is properly defined
 #
 #       set_gamma() -- checks the gamma parameter to ensures its properly defined
 #
@@ -37,10 +35,9 @@ import numpy as np
 ############################################################################################################################################
 
 class disease_model:
-    def __init__(self, populations, time_steps, X0, Beta, gamma, type = 'SIR'):
-        self.populations = np.array(populations)
+    def __init__(self, population, time_steps, X0, Beta, gamma):
+        self.population = population
         self.time_steps = np.array(time_steps)
-        self.n = len(self.populations) 
         self.T = len(self.time_steps)
         
         self.X0 = X0
@@ -49,14 +46,14 @@ class disease_model:
         self.R0 = None
         self.set_initial_compartments(X0)
         
-        self.S = np.zeros((self.T,self.n))
-        self.S[0,:] = self.S0
-        self.I = np.zeros((self.T,self.n))
-        self.I[0,:] = self.I0
-        self.R = np.zeros((self.T,self.n))
-        self.R[0,:] = self.R0
+        self.S = np.zeros(self.T)
+        self.S[0] = self.S0
+        self.I = np.zeros(self.T)
+        self.I[0] = self.I0
+        self.R = np.zeros(self.T)
+        self.R[0] = self.R0
         
-        self.incidence = np.zeros((self.T - 1,self.n))
+        self.incidence = np.zeros(self.T - 1)
         
         self.Beta = None
         self.set_beta(Beta)
@@ -67,13 +64,13 @@ class disease_model:
     
     def set_initial_compartments(self, X0):
         # 3 x n vector in the SIR case
-        if len(X0) == 3 * self.n:
+        if len(X0) == 3:
             self.X0 = X0
-            self.S0 = X0[:self.n]
-            self.I0 = X0[self.n:2*self.n]
-            self.R0 = X0[2*self.n:]
+            self.S0 = X0[0]
+            self.I0 = X0[1]
+            self.R0 = X0[2]
             
-            if not np.array_equal(self.S0 + self.I0 + self.R0, self.populations):
+            if self.S0 + self.I0 + self.R0 != self.population:
                 raise ValueError("S + I + R != N")
             
         else:
@@ -88,36 +85,12 @@ class disease_model:
         
         # Or it could be a single real number
         elif isinstance(Beta, float):
-            if self.n == 1:
-                self.Beta = np.array([[Beta]])
+            if Beta < 0:
+                raise ValueError("Beta contains negative values")
             else:
-                self.Beta = np.diag([Beta]*self.n)
-            
-        #Beta can be passed as a vector
-        elif len(Beta.shape) == 1:
-            # either as a length n^2 vector 
-            if len(Beta) == self.n**2:
-                self.Beta = Beta.reshape((self.n, self.n))
-                
-            # or as a length n(n+1)/2 vector (lower triangle of a symmetric matrix)
-            elif len(Beta) == self.n * (self.n + 1) / 2:
-                Bs = np.zeros((self.n, self.n))
-                Bs[np.tril_indices(Bs.shape[0], k = 0)] = Beta
-                self.Beta = Bs + Bs.T - np.diag(np.diag(Bs))
-                
-            else:
-                raise ValueError("Beta parameter is unshapely")
-            
-        # More standard, beta is passed in as an n x n matrix
-        else:
-            if Beta.shape == (self.n, self.n):
                 self.Beta = Beta
-            else:
-                raise ValueError("Beta parameter is unshapely")
-            
-        # Non-negative parameters
-        if (self.Beta < 0).any():
-            raise ValueError("Beta contains negative values")
+        else: 
+            raise ValueError("Beta must be a floating point value")
         
         
             
@@ -128,17 +101,12 @@ class disease_model:
         if gamma is None:
             return
         elif isinstance(gamma, float):
-            self.gamma = np.array([gamma])
-        elif len(gamma) == self.n:
+            if gamma < 0 or gamma > 1:
+                raise ValueError("gamma contains negative values or values greater than 1")
             self.gamma = gamma
-        elif len(gamma) == 1:
-            self.gamma = np.repeat(gamma,self.n)
+            
         else:
-            raise ValueError("Gamma parameter is unshapely")
-        
-        # Non-negative parameters
-        if (self.gamma < 0).any() or (self.gamma > 1).any():
-            raise ValueError("gamma contains negative values or values greater than 1")
+            raise ValueError("gamma must be a floating point value")
         
         
         

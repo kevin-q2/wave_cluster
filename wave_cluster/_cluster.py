@@ -3,6 +3,7 @@ import scipy.sparse
 import networkx as nx
 import itertools 
 import time
+import math
 
 ##############################################################################
 #   Clique clustering implementation
@@ -154,3 +155,144 @@ class clique_cluster:
             self.distance_update()
             end_time = time.time()
             dist_time += end_time - start_time
+    
+           
+    def random_cluster(self,k):
+        while len(self.C) > k:
+            randlist = list(itertools.combinations(range(len(self.C)), 2))
+            order = np.random.choice(range(len(randlist)), len(randlist))
+            boo = False
+            start = 0
+            while not boo and start < len(order):
+                rand_r = randlist[order[start]][0]
+                rand_c = randlist[order[start]][1]
+                boo = self.check_clique(rand_r, rand_c)
+                start += 1
+                
+            if boo == False:
+                print("Can't find less than " + str(len(self.C)) + " clusters!")
+                return
+            
+            self.cluster_update(rand_r, rand_c, 0)
+            
+            
+            
+            
+#################################################################################################
+#   
+## using a vector of cluster labels (n dimensional vector where each entry is 
+    # a label from [1,..,k]) compute the clustering partition (k dimensional list of lists 
+    # where each element is assigned to its cluster)
+################################################################################################
+            
+            
+class cluster_analyze:
+    def __init__(self, clustering = None, labels = None, segment_pool = None):
+        if clustering is None and labels is None:
+            pass
+        elif labels is None:
+            self.clustering = clustering 
+            self.labels = self.cluster_to_label(clustering)
+            
+        elif clustering is None:
+            self.labels = labels 
+            self.clustering = self.label_to_cluster(labels)
+            
+        else:
+            self.clustering = clustering
+            self.labels = labels
+            
+        self.segment_pool = segment_pool
+
+            
+    def cluster_to_label(self, clustering):
+        lens = [len(i) for i in clustering]
+        labels = np.zeros(np.sum(lens))
+        
+        for c in range(len(clustering)):
+            for k in clustering[c]:
+                labels[k] = c
+                
+        return labels
+        
+
+    def label_to_cluster(self, labels):
+        clustering = [[] for i in range(int(np.max(labels)) + 1)]
+        for l in range(len(labels)):
+            clustering[int(labels[l])].append(l)
+            
+        return clustering
+    
+    
+    def clust_nearest_neighbor(self, c, cluster, Graph):
+        complete = False
+        if math.comb(len(Graph.nodes),2) == len(Graph.edges):
+            complete = True
+        
+        c_name = self.segment_pool.key_list[c][:5]
+        min_dist = np.inf
+        neighbor = None
+        for i in cluster:
+            if i != c:
+                i_name = self.segment_pool.key_list[i][:5]
+                if complete:
+                    dist = Graph.get_edge_data(c_name, i_name)['weight']
+                else:
+                    try:
+                        dist = nx.shortest_path_length(Graph, c_name, i_name) #, weight = 'weight')
+                        #dist = nx.path_weight(Graph, path, weight = 'weight')
+                    except:
+                        dist = np.inf
+
+                if dist < min_dist:
+                    min_dist = dist
+                    neighbor = i
+                    
+        return neighbor, min_dist
+    
+    
+    
+    def cluster_cohesive(self, cluster, Graph):
+        if len(cluster) != 1:
+            clust_dists = []
+            for k in cluster:
+                nearest_dist = self.clust_nearest_neighbor(k, cluster, Graph)[1]
+                if nearest_dist != np.inf:
+                    clust_dists.append(nearest_dist)
+
+            return np.mean(clust_dists)
+        else:
+            return 0
+        
+        
+    def cluster_avg_diameter(self, cluster, Graph):
+        if len(cluster) != 1:
+            clust_dists = []
+            for k in cluster:
+                k_name = self.segment_pool.key_list[k][:5]
+                for k2 in cluster:
+                    k2_name = self.segment_pool.key_list[k2][:5]
+                    if k != k2:
+                        dist = Graph.get_edge_data(k_name, k2_name)['weight']
+                        clust_dists.append(dist)
+
+            return np.sum(clust_dists)/(len(cluster) * (len(cluster) - 1))
+        else:
+            return 0
+        
+    
+    def clustering_cohesive(self, Graph):
+        clustering_dists = []
+        for clust in self.clustering:
+            clust_dists = []
+            if len(clust) != 1:
+                for k in clust:
+                    nearest_dist = self.clust_nearest_neighbor(k, clust, Graph)[1]
+                    if nearest_dist != np.inf:
+                        clust_dists.append(nearest_dist)
+                clustering_dists.append(np.mean(clust_dists))
+    
+        return np.mean(clustering_dists)
+        #return np.mean(np.sort(clustering_dists)[:10])
+        
+    
