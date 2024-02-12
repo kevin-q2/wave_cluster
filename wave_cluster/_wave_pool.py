@@ -85,6 +85,7 @@ class wave_pool:
 def compute_pairwise(data, cuts_table, distance, cpu_count = mp.cpu_count() - 1):
     wpool = wave_pool(data, cuts_table, distance)
     n = len(wpool.key_list)
+    print(n)
     idx_entries = []
     d_entries = []
     for i in range(n - 1):
