@@ -4,6 +4,7 @@ import scipy
 from scipy.sparse import csr_matrix
 import multiprocessing as mp
 from multiprocessing import Pool
+from ._tools import overlap_graph
 
 
 
@@ -67,8 +68,15 @@ class wave_pool:
     def dist(self, locations):
         location1 = locations[0]
         location2 = locations[1]
+        #times1 = self.times[location1]
+        #times2 = self.times[location2]
+        #time_intersect = (max(times1[0], times2[0]), min(times1[1], times2[1]))
+        #time_union = (min(times1[0], times2[0]), max(times1[1], times2[1]))
+        
         x = self.waves[location1]
         y = self.waves[location2]
+        #x = self.data.loc[:,location1[:-2]].to_numpy()[time_union[0]:time_union[1]]
+        #y = self.data.loc[:,location2[:-2]].to_numpy()[time_union[0]:time_union[1]]
         d = self.distance(x, y)
         return d
     
@@ -85,7 +93,6 @@ class wave_pool:
 def compute_pairwise(data, cuts_table, distance, cpu_count = mp.cpu_count() - 1):
     wpool = wave_pool(data, cuts_table, distance)
     n = len(wpool.key_list)
-    print(n)
     idx_entries = []
     d_entries = []
     for i in range(n - 1):
@@ -103,3 +110,48 @@ def compute_pairwise(data, cuts_table, distance, cpu_count = mp.cpu_count() - 1)
     # record results in sparse csr matrix
     D = csr_matrix((results, (row_idx, col_idx)), shape = (n,n))
     return D, wpool
+
+
+
+def compute_threshold_pairwise(data, cuts_table, distance, percent_overlap, cpu_count = mp.cpu_count() - 1):
+    wpool = wave_pool(data, cuts_table, distance)
+    edge_list = overlap_graph(percent_overlap, wpool)
+    n = len(wpool.key_list)
+    idx_entries = []
+    d_entries = []
+    for e in edge_list:
+        i = min(e)
+        j = max(e)
+        idx_entries.append((i,j))
+        d_entries.append((wpool.key_list[i],wpool.key_list[j]))
+
+
+    with Pool(cpu_count) as p:
+        results = p.map(wpool.dist, d_entries)
+
+    row_idx = [i[0] for i in idx_entries]
+    col_idx = [i[1] for i in idx_entries]
+
+    # record results in sparse csr matrix
+    D = csr_matrix((results, (row_idx, col_idx)), shape = (n,n))
+    return D, wpool
+
+
+
+def compute_partial_pairwise(pool, idx_entries, cpu_count = mp.cpu_count() - 1):
+    n = len(pool.key_list)
+    d_entries = []
+    for i in range(len(idx_entries)):
+        first = idx_entries[i][0]
+        second = idx_entries[i][1]
+        d_entries.append((pool.key_list[first],pool.key_list[second]))
+            
+    with Pool(cpu_count) as p:
+        results = p.map(pool.dist, d_entries)
+
+    row_idx = [i[0] for i in idx_entries]
+    col_idx = [i[1] for i in idx_entries]
+
+    # record results in sparse csr matrix
+    D = csr_matrix((results, (row_idx, col_idx)), shape = (n,n))
+    return D

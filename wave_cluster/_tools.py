@@ -1,6 +1,11 @@
 import numpy as np
+import pandas as pd
+import math
 from sklearn.metrics.pairwise import haversine_distances
 from math import radians
+from ._dynamic_time_warp import dtw
+from itertools import combinations
+from scipy.sparse import csr_matrix
 
 
 ###############################################################################
@@ -79,6 +84,38 @@ def window_median(X, front, back):
     return np.array(sliders)
 
 
+
+def l2(x,y):
+    return np.linalg.norm(x-y)
+
+# DTW alignment distance
+def align_distance(x, y):
+    if isinstance(x, pd.Series):
+        x = x.to_numpy()
+        y = y.to_numpy()
+        
+    # normalize so that distance between individual points is always between 0 and 1
+    normy = max(x.max(), y.max())
+    x = x.copy()
+    y = y.copy()
+    if normy != 0:
+        x /= normy
+        y /= normy
+    
+    # with an alignment penalty, compute the best dtw alignment cost
+    off_diag = 5
+    mp = [off_diag,off_diag,1]
+    ap = [0,0,0]
+    cost, align, C= dtw(x, y, distance = l2, mult_penalty = mp, add_penalty = ap)
+
+    # normalize to adjust for the length of the vectors and the size of the multiplicative penalty
+    # This just ensures that the distances are on a 0-1 scale
+    # and are comparable for time series with different length
+    time_norm = off_diag*(len(x) + len(y) - 2) + 1
+    return cost/time_norm
+
+
+
 # using a vector of cluster labels (n dimensional vector where each entry is 
 # a label from [1,..,k]) compute the clustering partition (k dimensional list of lists 
 # where each element is assigned to its cluster)
@@ -93,18 +130,18 @@ def label_to_cluster(lab):
 # from some decreasing curve represented as a finite vector, 
 # find an 'elbow' point i.e. the first point where the curves values 
 # change less than some given threshold amount
-def elbow(curve, threshold):
-    change_point = None
+def elbow(curve, threshold, eps = 1.5):
+    change_point = -1
     #threshold = np.abs(np.median(np.diff(curve, n= 1)))
     for c in range(len(curve) - 1):
-        if change_point is None:
+        if change_point == -1:
             #if np.abs(curve[c + 1] - curve[c]) < threshold:
             if curve[c] - curve[c + 1] < threshold:
                 change_point = c
             
         #elif np.abs(curve[c + 1] - curve[c]) > threshold:
-        elif curve[c] - curve[c + 1] > threshold:
-            change_point = None
+        elif curve[c] - curve[c + 1] > eps*threshold:
+            change_point = -1
             
     return change_point
 
@@ -176,6 +213,39 @@ def overlap_graph(percent_overlap, wave_pool_obj):
 
 
 
+def find_closest_other(Distances, labels, point, graph):
+    others = np.unique(labels)
+    best = None
+    best_distance = np.inf
+    for o in others:
+        if o != labels[point]:
+            labels_o = np.where(labels == o)[0]
+            
+            overlaps_with = [k for k in labels_o if graph.has_edge(point, k)]
+            if len(overlaps_with) >= 1*len(labels_o):
+                b_o = np.sum([Distances[point,j] if point < j else Distances[j,point] for j in labels_o])/len(labels_o)
+                #print(b_o)
+                if b_o < best_distance:
+                    best = o
+                    best_distance = b_o
+
+    return best_distance
+
+
+def constrained_silhouette(Distances, labels, graph):
+    silhouette_score = 0
+    for i in range(len(labels)):
+        labels_i = np.where(labels == labels[i])[0]
+        if len(labels_i) != 1:
+            a_i = np.sum([Distances[i,j] if i < j else Distances[j,i] for j in labels_i if j != i])/(len(labels_i) - 1)
+            b_i = find_closest_other(Distances, labels, i, graph)
+
+            if b_i != np.inf:
+                silhouette_score += (b_i - a_i)/max(a_i, b_i)
+            else:
+                silhouette_score += 1
+        
+    return silhouette_score/len(labels)
 
 
 def cluster_agreement(labels1, labels2):
@@ -231,3 +301,64 @@ def unique_clusterings(clusterings):
             labeling_ref[i] = current_lab
             current_lab += 1
     return labeling_dict, labeling_ref
+
+
+
+
+# Differences in segmentation methods!
+def disagreement_distance(P,Q):
+    total_disagree = 0
+    
+    for p in range(len(P) - 1):
+        Ep = (P[p+1] - P[p])**2 / 2
+        total_disagree += Ep
+        
+    for q in range(len(Q) - 1):
+        Eq = (Q[q+1] - Q[q])**2 / 2
+        total_disagree += Eq
+        
+    U = list(set(P).union(set(Q)))
+    U.sort()
+    for u in range(len(U) - 1):
+        Eu = (U[u+1] - U[u])**2 / 2
+        total_disagree -= 2*Eu
+        
+    return total_disagree
+        
+    
+
+def compute_disagreements(locations, input_space, seg_mat1, seg_mat2):
+    disagreements = np.zeros(len(locations))
+    z = math.comb(len(input_space),2)
+    for l in range(len(locations)):
+        partition1 = seg_mat1.loc[:,locations[l]].to_numpy()
+        partition1 = partition1[~np.isnan(partition1)]
+        partition2 = seg_mat2.loc[:,locations[l]].to_numpy()
+        partition2 = partition2[~np.isnan(partition2)]
+        disagreements[l] = disagreement_distance(partition1, partition2)/z
+    return disagreements
+
+
+
+def pairwise_from_pool(wpool, dist):
+    n = len(wpool.key_list)
+    pairs = list(combinations(wpool.key_list, 2))
+    pairs += [(i,i) for i in wpool.key_list]
+    
+    idx_entries = []
+    d_entries = []
+    for i in range(n - 1):
+        for j in range(i + 1, n):
+            idx_entries.append((i,j))
+            d_entries.append((wpool.key_list[i],wpool.key_list[j]))
+            
+    results = []
+    for pair in d_entries:
+        results.append(dist(pair[0], pair[1]))
+    
+    row_idx = [i[0] for i in idx_entries]
+    col_idx = [i[1] for i in idx_entries]
+
+    # record results in sparse csr matrix
+    D = csr_matrix((results, (row_idx, col_idx)), shape = (n,n))
+    return D

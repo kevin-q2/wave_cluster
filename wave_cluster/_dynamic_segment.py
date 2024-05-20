@@ -1,7 +1,7 @@
 import numpy as np
 import multiprocessing as mp
 from multiprocessing import Pool
-from ._sir_fit import *
+#from ._sir_fit import *
 
 
 ##########################################################################################################################

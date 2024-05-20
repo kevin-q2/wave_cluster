@@ -6,6 +6,8 @@ import time
 import math
 import random
 import copy
+#from sklearn.metrics import silhouette_score
+#from ._tools import constrained_silhouette 
 
 ##############################################################################
 #   Clique clustering implementation
@@ -17,7 +19,7 @@ import copy
 ### TO DO: add node list into this (affects number of clusters!)
 
 class clique_cluster:
-    def __init__(self, D, edge_list, linkage = 'single'):
+    def __init__(self, D, edge_list, linkage = 'complete', threshold = np.inf):
         self.D = D
         self.G = nx.from_edgelist(edge_list)
             
@@ -28,6 +30,8 @@ class clique_cluster:
             self.linkage = self.single_linkage
         elif linkage == 'complete':
             self.linkage = self.complete_linkage
+            
+        self.threshold = threshold
             
         self.last_links = None
         
@@ -144,12 +148,17 @@ class clique_cluster:
                 clique_time += end_time - start_time
                 
                 start += 1
-                
+            
+            # No more cliques or distance threshold reached!
             if boo == False:
                 #print("Can't find less than " + str(len(self.C)) + " clusters!")
                 #print('clique time: ' + str(clique_time))
                 #print('dist time: ' + str(dist_time))
                 return
+            
+            elif start < len(v):
+                if v[v_sort[start]] > self.threshold:
+                    return
             
             #print(min_r)
             #print(min_c)
@@ -173,6 +182,7 @@ class random_clique_cluster(clique_cluster):
         self.node_list = node_list
         self.G = nx.from_edgelist(edge_list)
         self.C = [[i] for i in range(len(node_list))]
+        self.D = np.zeros((len(node_list), len(node_list)))
                
     def cluster_update(self, c_i, c_j, v_ij):
         new_cluster = [self.C[c_i] + self.C[c_j]]
@@ -233,125 +243,27 @@ class random_clique_cluster(clique_cluster):
             
             
 
-##################################################################################################
-#
-###################################################################################################
 
-class cluster_mcmc:
-    def __init__(self, clustering, node_list, edge_list):
-        self.k = len(clustering)
-        self.n = len(node_list)
-        self.current_clustering = clustering
-        self.current_labels = self.cluster_to_label(self.current_clustering)
-        self.G = nx.Graph()
-        self.G.add_nodes_from(node_list)
-        self.G.add_edges_from(edge_list)
-        #self.random_clusterings = [self.cl]uster_to_label(clustering)
-        
-        
-    def cluster_to_label(self, clustering):
-        lens = [len(i) for i in clustering]
-        labels = np.zeros(np.sum(lens), dtype = np.int8)
-        for c in range(len(clustering)):
-            for k in clustering[c]:
-                labels[k] = c
-                
-        return labels
+def random_seg_assignment(segs, sizes):
+    shuffled = np.random.choice(range(len(segs)), len(segs), replace = False)
+    C = []
+    i = 0
+    for s in sizes:
+        C += [list(shuffled[i:i + s])]
+        i += s
+    return C
 
-    def check_connect(self, element, c_i):
-        for i in self.current_clustering[c_i]:
-            if not self.G.has_edge(i,element):
-                return False
-        return True
-    
-    def expand(self):
-        rand = np.random.choice(range(self.k))
-        for c in range(self.k):
-            if c != rand and len(self.current_clustering[c]) > 1:
-                for n in self.current_clustering[c]:
-                    if self.check_connect(n, rand):
-                        if np.random.uniform(0,1) > 0.5:
-                            #print('expansion!')
-                            self.current_clustering[c].remove(n)
-                            self.current_clustering[rand].append(n)
-    
-    def split(self):
-        rand = np.random.choice(range(self.k))
-        old_cluster = []
-        new_cluster = []
-        for n in self.current_clustering[rand]:
-            if np.random.uniform(0,1) > 0.5:
-                new_cluster.append(n)
-            else:
-                old_cluster.append(n)
-                
-        self.current_clustering[rand] = old_cluster
-        self.current_clustering.append(new_cluster)
-        
-    
-    def permutations(self, clustering):
-        cluster_moves = 0
-        clustering_moves = 1
-        spaces = 0
-        for ci in range(len(clustering)):
-            
-            # I think don't add anything for the case of singleton cliques???
-            if len(clustering[ci]) > 1:
-                prod = 1
-                for ell in range(2, len(clustering[ci]) + 1):
-                    prod *= math.comb(ell, 2)
-                cluster_moves += prod
-            
-                #print(spaces)
-                spaces += len(clustering[ci]) - 1
-                clustering_moves *= math.comb(spaces, len(clustering[ci]) - 1)
-                #spaces = spaces - (len(self.current_clustering) - 1)
-
-        #print('clustering: ' + str(clustering_moves))
-        #print('cluster: ' + str(cluster_moves))
-        return clustering_moves * cluster_moves
-        
-    def single_move(self):
-        v = np.random.choice(range(len(self.G.nodes)))
-        current_cluster = self.current_labels[v]
-        # Is there a more efficient way to do this?
-        Q = [i for i in range(len(self.current_clustering)) if self.check_connect(v, i)]
-        
-        if len(Q) == 0 or len(self.current_clustering[current_cluster]) == 1:
-            return
-        
-        move_to = np.random.choice(Q)
-        attempt_clustering  = copy.deepcopy(self.current_clustering)
-        attempt_clustering[current_cluster].remove(v)
-        attempt_clustering[move_to].append(v)
-        
-        u = np.random.uniform(0,1)
-        #print(self.permutations(attempt_clustering))
-        #print('total: ' +  str(self.permutations(attempt_clustering)))
-        #print()
-        #print('total: ' + str(self.permutations(self.current_clustering)))
-        #print()
-        f_ratio = self.permutations(attempt_clustering)/self.permutations(self.current_clustering)
-        #print(f_ratio)
-        #print(u)
-        #print()
-        if f_ratio >= u:
-            self.current_clustering = attempt_clustering
-        
-    
-    def sample(self, num_samples):
-        self.random_clusterings = np.zeros((num_samples, len(self.G.nodes)))
-        for s in range(num_samples):
-            #self.expand()
-            #if len(self.current_clustering) < self.k:
-            #    print('split')
-            #    self.split()
-            self.single_move()
-            self.current_labels = self.cluster_to_label(self.current_clustering)
-            self.random_clusterings[s,:] = self.current_labels
-            
-        self.random_clusterings = np.array(self.random_clusterings)
-            
+def random_seg_assign_sample(segs, sizes, samples):
+    random_clusterings = np.zeros((samples, len(segs)))
+    for sample in range(samples):
+        Clustering = random_seg_assignment(segs, sizes)
+        rand_labels = np.zeros(len(segs))
+        rand_labels[:] = np.nan
+        for clust in range(len(Clustering)):
+            for entry in Clustering[clust]:
+                rand_labels[entry] = clust
+        random_clusterings[sample,:] = rand_labels
+    return random_clusterings
         
     
     
@@ -366,7 +278,16 @@ class cluster_mcmc:
             
             
 class cluster_analyze:
-    def __init__(self, clustering = None, labels = None, segment_pool = None):
+    #def __init__(self, D, segment_pool, clustering = None, labels = None, edgelist = None):
+    def __init__(self, cluster_object, segment_pool):
+        self.cluster_object = cluster_object
+        self.segment_pool = segment_pool
+        self.D = self.cluster_object.D
+        self.G = self.cluster_object.G
+        self.clustering = self.cluster_object.C
+        self.labels = self.cluster_to_label(self.clustering)
+        
+        '''
         if clustering is None and labels is None:
             pass
         elif labels is None:
@@ -381,7 +302,11 @@ class cluster_analyze:
             self.clustering = clustering
             self.labels = labels
             
-        self.segment_pool = segment_pool
+        if not edgelist is None:
+            self.G = nx.from_edgelist(edgelist)
+        else:
+            self.G = None
+        '''
 
             
     def cluster_to_label(self, clustering):
@@ -403,102 +328,245 @@ class cluster_analyze:
         return clustering
     
     
-    def clust_nearest_neighbor(self, c, cluster, Graph):
-        complete = False
-        if math.comb(len(Graph.nodes),2) == len(Graph.edges):
-            complete = True
-        
-        c_name = self.segment_pool.key_list[c][:5]
-        min_dist = np.inf
-        neighbor = None
-        for i in cluster:
-            if i != c:
-                i_name = self.segment_pool.key_list[i][:5]
-                if complete:
-                    dist = Graph.get_edge_data(c_name, i_name)['weight']
-                else:
-                    try:
-                        dist = nx.shortest_path_length(Graph, c_name, i_name) #, weight = 'weight')
-                        #dist = nx.path_weight(Graph, path, weight = 'weight')
-                    except:
-                        dist = np.inf
+    def avg_cost(self, cluster):
+        if len(cluster) != 1:
+            clust_costs = []
+            for k in range(len(cluster)):
+                for k2 in range(k + 1, len(cluster)):
+                    if cluster[k] < cluster[k2]:
+                        cost = self.D[cluster[k],cluster[k2]]
+                    else:
+                        cost = self.D[cluster[k2],cluster[k]]
+                        
+                    clust_costs.append(cost)
 
-                if dist < min_dist:
-                    min_dist = dist
-                    neighbor = i
-                    
-        return neighbor, min_dist
+            return np.mean(clust_costs)
+        else:
+            return 0
+        
+    
+    def complete_linkage_cost(self, cluster):
+        if len(cluster) != 1:
+            clust_costs = []
+            for k in range(len(cluster)):
+                for k2 in range(k + 1, len(cluster)):
+                    if cluster[k] < cluster[k2]:
+                        cost = self.D[cluster[k],cluster[k2]]
+                    else:
+                        cost = self.D[cluster[k2],cluster[k]]
+                        
+                    clust_costs.append(cost)
+
+            return np.max(clust_costs)
+        else:
+            return 0
+        
+        
+    def single_linkage_cost(self, cluster):
+        if len(cluster) != 1:
+            clust_costs = []
+            for k in range(len(cluster)):
+                for k2 in range(k + 1, len(cluster)):
+                    if cluster[k] < cluster[k2]:
+                        cost = self.D[cluster[k],cluster[k2]]
+                    else:
+                        cost = self.D[cluster[k2],cluster[k]]
+                        
+                    clust_costs.append(cost)
+
+            return np.min(clust_costs)
+        else:
+            return 0
+        
+        
+    def find_closest_other(self, Distances, point):
+        others = np.unique(self.labels)
+        best = None
+        best_distance = np.inf
+        for o in others:
+            if o != self.labels[point]:
+                labels_o = np.where(self.labels == o)[0]
+                
+                overlaps_with = [k for k in labels_o if self.G.has_edge(point, k)]
+                if len(overlaps_with) >= 1*len(labels_o):
+                    b_o = np.sum([Distances[point,j] if point < j else Distances[j,point] for j in labels_o])/len(labels_o)
+                    #print(b_o)
+                    if b_o < best_distance:
+                        best = o
+                        best_distance = b_o
+
+        return best_distance
+
+
+    '''
+    def constrained_silhouette(self, Distances):
+        silhouette_score = 0
+        for i in range(len(self.labels)):
+            labels_i = np.where(self.labels == self.labels[i])[0]
+            if len(labels_i) != 1:
+                a_i = np.sum([Distances[i,j] if i < j else Distances[j,i] for j in labels_i if j != i])/(len(labels_i) - 1)
+                b_i = self.find_closest_other(Distances, i)
+
+                if b_i != np.inf:
+                    silhouette_score += (b_i - a_i)/max(a_i, b_i)
+                else:
+                    silhouette_score += 1
+            
+        return silhouette_score/len(self.labels)
+    '''
+    
+    def constrained_silhouette(self, Distances, cluster):
+        silhouette_score = 0
+        for i in self.clustering[cluster]:
+            labels_i = np.where(self.labels == self.labels[i])[0]
+            if len(labels_i) != 1:
+                a_i = np.sum([Distances[i,j] if i < j else Distances[j,i] for j in labels_i if j != i])/(len(labels_i) - 1)
+                b_i = self.find_closest_other(Distances, i)
+
+                if b_i != np.inf:
+                    silhouette_score += (b_i - a_i)/max(a_i, b_i)
+                else:
+                    silhouette_score += 1
+            
+        return silhouette_score/len(self.clustering[cluster])
     
     
+    def silhouette(self, cluster):
+        return self.constrained_silhouette(self.D, cluster)
+        
+        
+    def total_points(self, cluster):
+        total_points = 0
+        for k in cluster:
+            times = self.segment_pool.times[self.segment_pool.key_list[k]]
+            total_points += times[1] - times[0]
+            
+        return total_points
     
-    def cluster_cohesive(self, cluster, Graph):
+    def explained_variance(self, cluster):
+        X = self.segment_pool.data.to_numpy()
+        X = X - np.mean(X, axis = 0)
+        #X = X - np.mean(X)
+        X = X**2
+            
+        explained = 0
+        for k in cluster:
+            loc = self.segment_pool.key_list[k]
+            iloc = self.segment_pool.data.columns.get_loc(loc[:loc.rfind('_')])
+            times = self.segment_pool.times[loc]
+            explained += np.sum(X[times[0]:times[1], iloc])
+                
+        return explained
+
+        
+    def avg_pairwise_distance(self, cluster, Graph):
         if len(cluster) != 1:
             clust_dists = []
-            for k in cluster:
-                nearest_dist = self.clust_nearest_neighbor(k, cluster, Graph)[1]
-                if nearest_dist != np.inf:
-                    clust_dists.append(nearest_dist)
+            for k in range(len(cluster)):
+                k_name = self.segment_pool.key_list[cluster[k]]
+                k_name = k_name[:k_name.rfind('_')]
+                for k2 in range(k + 1, len(cluster)):
+                    k2_name = self.segment_pool.key_list[cluster[k2]]
+                    k2_name = k2_name[:k2_name.rfind('_')]
+                    dist = Graph.get_edge_data(k_name, k2_name)['weight']
+                    clust_dists.append(dist)
 
             return np.mean(clust_dists)
         else:
             return 0
         
-        
-    def cluster_avg_diameter(self, cluster, Graph):
-        if len(cluster) != 1:
-            clust_dists = []
-            for k in cluster:
-                k_name = self.segment_pool.key_list[k][:5]
-                for k2 in cluster:
-                    k2_name = self.segment_pool.key_list[k2][:5]
-                    if k != k2:
-                        dist = Graph.get_edge_data(k_name, k2_name)['weight']
-                        clust_dists.append(dist)
-
-            return np.sum(clust_dists)/(len(cluster) * (len(cluster) - 1))
-        else:
-            return 0
-        
     
-    def cluster_avg_diameter_adj(self, cluster, Graph):
+    def avg_pairwise_distance_adj(self, cluster, Graph):
         if len(cluster) != 1:
             clust_dists = []
-            for k in cluster:
-                k_name = self.segment_pool.key_list[k][:5]
-                for k2 in cluster:
-                    k2_name = self.segment_pool.key_list[k2][:5]
-                    if k != k2:
-                        dist = nx.shortest_path_length(Graph, k_name, k2_name)
-                        clust_dists.append(dist)
+            for k in range(len(cluster)):
+                k_name = self.segment_pool.key_list[cluster[k]]
+                k_name = k_name[:k_name.rfind('_')]
+                for k2 in range(k+1, len(cluster)):
+                    k2_name = self.segment_pool.key_list[cluster[k2]]
+                    k2_name = k2_name[:k2_name.rfind('_')]
+                    dist = nx.shortest_path_length(Graph, k_name, k2_name)
+                    clust_dists.append(dist)
                         
-            return np.sum(clust_dists)/(len(cluster) * (len(cluster) - 1))
+            return np.mean(clust_dists)
         else:
             return 0
         
     
-    def clustering_avg_diameter(self, Graph):
-        diameters = np.zeros(len(self.clustering))
-        
-        for ci in range(len(self.clustering)):
-            avg_c = self.cluster_avg_diameter(self.clustering[ci], Graph)
-            diameters[ci] = avg_c
-            
-        return diameters
-        
-        
-    
-    def clustering_cohesive(self, Graph):
-        clustering_dists = []
-        for clust in self.clustering:
+    def avg_pairwise_distance_time(self, cluster, time_series_data):
+        if len(cluster) != 1:
             clust_dists = []
-            if len(clust) != 1:
-                for k in clust:
-                    nearest_dist = self.clust_nearest_neighbor(k, clust, Graph)[1]
-                    if nearest_dist != np.inf:
-                        clust_dists.append(nearest_dist)
-                clustering_dists.append(np.mean(clust_dists))
-    
-        return np.mean(clustering_dists)
-        #return np.mean(np.sort(clustering_dists)[:10])
+            for k in range(len(cluster)):
+                k_name = self.segment_pool.key_list[cluster[k]]
+                k_times = self.segment_pool.times[k_name]
+                k_vec = time_series_data.loc[:,k_name[:k_name.rfind('_')]][k_times[0]:k_times[1]]
+                k_val = k_vec.mean()
+                for k2 in range(k+1, len(cluster)):
+                    k2_name = self.segment_pool.key_list[cluster[k2]]
+                    k2_times = self.segment_pool.times[k2_name]
+                    k2_vec = time_series_data.loc[:,k2_name[:k2_name.rfind('_')]][k2_times[0]:k2_times[1]]
+                    k2_val = k2_vec.mean()
+                    
+                    dist = np.abs(k_val - k2_val)
+                    clust_dists.append(dist)
+                        
+            return np.mean(clust_dists)
+        else:
+            return 0
         
+
+    def avg_values_time(self, cluster, time_series_data):
+        clust_vals = []
+        for k in range(len(cluster)):
+            k_name = self.segment_pool.key_list[cluster[k]]
+            k_times = self.segment_pool.times[k_name]
+            k_vec = time_series_data.loc[:,k_name[:k_name.rfind('_')]][k_times[0]:k_times[1]]
+            k_val = k_vec.mean()
+            clust_vals.append(k_val)
+            
+        return np.mean(clust_vals)
     
+    
+## Tools for analyzing a clustering with some auxiliary information! 
+# This is specifically catered to the experiments I was performing
+def compute_auxiliary_info(analysis_object, dist_matrices, health_index, infection_data, extra_info):
+    cluster_data = []
+    for clust in range(len(analysis_object.clustering)):
+        cluster = analysis_object.clustering[clust]
+        size = len(cluster)
+        cost = analysis_object.complete_linkage_cost(cluster)
+        points = analysis_object.total_points(cluster)
+        explained_variance = analysis_object.explained_variance(cluster) 
+        
+        #diams = []
+        silhouettes = [analysis_object.silhouette(clust)]
+        for Dm in dist_matrices:
+            #diam = analysis_object.avg_pairwise_distance(cluster, dG)
+            #diams.append(diam)
+            sil = analysis_object.constrained_silhouette(Dm, clust)
+            silhouettes.append(sil)
+            
+        health_info = None
+        if not health_index is None:
+            health_info = analysis_object.avg_values_time(cluster, health_index)
+            #health_dists = analysis_object.avg_pairwise_distance_time(cluster, health_index)
+        
+        infection_info = None
+        if not infection_data is None:
+            infection_info = analysis_object.avg_values_time(cluster, infection_data)
+            
+        #if compute_silhouette:
+        #    silhouette_score = analysis_object.silhouette()
+        #else:
+        #    silhouette_score = None
+        #cluster_data.append([i for i in extra_info] + [clust, size, cost, silhouette_score, points, explained_variance] + diams + [health_info, health_dists, infection_info])
+        cluster_data.append([i for i in extra_info] + [clust, size, cost, points, explained_variance] + silhouettes + [health_info, infection_info])
+        
+    return cluster_data
+
+def auxiliary_info(cluster_object, wpool, dist_matrices, health_index = None, infection_data = None, extra_info = []):
+    # analysis object
+    c_analyze = cluster_analyze(cluster_object, segment_pool = wpool)
+    cluster_data = compute_auxiliary_info(c_analyze, dist_matrices, health_index, infection_data, extra_info = extra_info)
+        
+    return cluster_data
