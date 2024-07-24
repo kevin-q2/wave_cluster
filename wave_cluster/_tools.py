@@ -212,6 +212,33 @@ def overlap_graph(percent_overlap, wave_pool_obj):
     return edge_list
 
 
+def remove_rows_cols(matrix, indices):
+    # Indices is a list of integers i where i corresponds to a both a row and a column to drop from the matrix
+    indices = sorted(indices, reverse=True)
+    for idx in indices:
+        # Remove the specified row
+        matrix = np.delete(matrix, idx, axis=0)
+        # Remove the specified column
+        matrix = np.delete(matrix, idx, axis=1)
+    return matrix
+
+def add_row_col(matrix, new_row, new_col):
+    # Ensure the new row is a 1D array of the correct length
+    new_row = np.array(new_row)
+    assert new_row.shape[0] == matrix.shape[1], "New row length must match number of columns in the matrix"
+    
+    # Append the new row to the matrix
+    matrix = np.vstack([matrix, new_row])
+    
+    # Ensure the new column is a 1D array of the correct length
+    new_col = np.array(new_col)
+    assert new_col.shape[0] == matrix.shape[0], "New column length must match number of rows in the updated matrix"
+    
+    # Append the new column to the matrix
+    matrix = np.hstack([matrix, new_col.reshape(-1, 1)])
+    
+    return matrix
+
 
 def find_closest_other(Distances, labels, point, graph):
     others = np.unique(labels)
@@ -362,3 +389,28 @@ def pairwise_from_pool(wpool, dist):
     # record results in sparse csr matrix
     D = csr_matrix((results, (row_idx, col_idx)), shape = (n,n))
     return D
+
+
+
+
+# THESE ARE ALSO IN CLUSTER -- you have to figure out what to do with them....
+def random_seg_assignment(segs, sizes):
+    shuffled = np.random.choice(range(len(segs)), len(segs), replace = False)
+    C = []
+    i = 0
+    for s in sizes:
+        C += [list(shuffled[i:i + s])]
+        i += s
+    return C
+
+def random_seg_assign_sample(segs, sizes, samples):
+    random_clusterings = np.zeros((samples, len(segs)))
+    for sample in range(samples):
+        Clustering = random_seg_assignment(segs, sizes)
+        rand_labels = np.zeros(len(segs))
+        rand_labels[:] = np.nan
+        for clust in range(len(Clustering)):
+            for entry in Clustering[clust]:
+                rand_labels[entry] = clust
+        random_clusterings[sample,:] = rand_labels
+    return random_clusterings
