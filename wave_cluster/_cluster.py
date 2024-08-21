@@ -74,22 +74,21 @@ class clique_cluster:
         
         self.last_links = None
         
-        self.linkage_matrix = []
-        self.linkage_index = len(self.C) - 1
-        self.linkage_names = [i for i in range(D.shape[1])]
+        #self.linkage_matrix = []
+        #self.linkage_index = len(self.C) - 1
+        #self.linkage_names = [i for i in range(D.shape[1])]
         
         self.distance_preprocess()
     
         
     def distance_preprocess(self):
-        # Pre-processes entries of the distance matrix so that distances between 
+        # Pre-processes (A COPY) of the entries of the distance matrix so that distances between 
         # items i,j are only non-zero if there exists an edge between them
-        '''
-        for i in range(len(self.C) - 1):
-            for j in range(i + 1, len(self.C)):
-                if not self.check_clique_edges(i,j):
-                    self.D_cluster[i,j] = np.inf
-        '''
+        #
+        # NOTE: For now I am using 0 entries to represent an absence of edges between clusters 
+        #       This doesn't account for the fact that distances could maybe be 0 between clusters...
+        #       I'm going to assume for now that that will never happen...
+
         self.D_cluster = self.D_cluster.toarray()
         D_mask = np.zeros(self.D_cluster.shape)
                 
@@ -109,36 +108,11 @@ class clique_cluster:
             return False
         else:
             return True
-    
-    ''' 
-    # compute the single linkage distance between clusters A and B
-    
-    def single_linkage(self, A,B):
-        min_dist = np.inf
-        for a in A:
-            for b in B:
-                r = min(a,b)
-                c = max(a,b)
-                Dij = self.D[r, c]
-                if Dij < min_dist:
-                    min_dist = Dij
-        return min_dist
-    
-    # compute the complete linkage distance between clusters A and B
-    def complete_linkage(self, A,B):
-        max_dist = 0
-        for a in A:
-            for b in B:
-                r = min(a,b)
-                c = max(a,b)
-                Dij = self.D[r, c]
-                if Dij > max_dist:
-                    max_dist = Dij
-        return max_dist
-    
-    '''
+
+
     def single_linkage(self, idx):
-        # compute the single linkage distance between clusters A and B
+        # compute the single linkage distance between a cluster indexed by idx and the newly 
+        # formed cluster which is a combination of items in last_links
         dist1 = self.D_cluster[min(idx, self.last_links[0]), max(idx, self.last_links[0])]
         dist2 = self.D_cluster[min(idx, self.last_links[1]), max(idx, self.last_links[1])]
         if dist1 == 0 or dist2 == 0:
@@ -148,7 +122,8 @@ class clique_cluster:
     
 
     def complete_linkage(self, idx):
-        # compute the complete linkage distance between clusters A and B
+        # compute the complete linkage distance between between a cluster indexed by idx and the newly 
+        # formed cluster which is a combination of items in last_links
         dist1 = self.D_cluster[min(idx, self.last_links[0]), max(idx, self.last_links[0])]
         dist2 = self.D_cluster[min(idx, self.last_links[1]), max(idx, self.last_links[1])]
         if dist1 == 0 or dist2 == 0:
@@ -164,62 +139,6 @@ class clique_cluster:
         # and add a new row/column with computed distances for the new cluster
         # onto the end of the matrix. 
         
-        """
-        ro,co,vo = scipy.sparse.find(self.D_cluster)
-        rdx = []
-        cdx = []
-        vals = []
-        for i in range(len(self.C) - 1):
-            for j in range(i + 1, len(self.C)):
-                # newly formed cluster appears at the end of cluster list
-                #linkage_val = self.linkage(self.C[i], self.C[j])
-                if i >= self.last_links[1] - 1:
-                        diff_i = i + 2
-                elif i >= self.last_links[0]:
-                    diff_i = i + 1
-                else:
-                    diff_i = i
-                    
-                if j >= self.last_links[1] - 1:
-                    diff_j = j + 2
-                elif j >= self.last_links[0]:
-                    diff_j = j + 1
-                else:
-                    diff_j = j
-                
-                
-                if j == len(self.C) - 1:
-                    #linkage_val = self.linkage(self.C[i], self.C[j])
-                    linkage_val = self.linkage(diff_i)
-                
-                # for non-newly formed clusters, we already have the distance between them (no need to recompute)
-                else:
-                    '''
-                    if i >= self.last_links[1] - 1:
-                        diff_i = i + 2
-                    elif i >= self.last_links[0]:
-                        diff_i = i + 1
-                    else:
-                        diff_i = i
-                        
-                    if j >= self.last_links[1] - 1:
-                        diff_j = j + 2
-                    elif j >= self.last_links[0]:
-                        diff_j = j + 1
-                    else:
-                        diff_j = j
-                    '''
-                        
-                    linkage_val = self.D_cluster[diff_i, diff_j]
-                
-                
-                            
-                rdx.append(i)
-                cdx.append(j)
-                vals.append(linkage_val)
-        
-        self.D_cluster = scipy.sparse.csr_matrix((vals, (rdx, cdx)), shape = (len(self.C),len(self.C)))
-        """
         Dc = self.D_cluster.toarray()
         Dc = remove_rows_cols(Dc, self.last_links)
         
@@ -235,7 +154,7 @@ class clique_cluster:
             new_dists.append(self.linkage(diff_i))
             
         new_row = np.zeros(len(new_dists))
-        new_col = np.array(new_dists + [np.inf])
+        new_col = np.array(new_dists + [0])
         Dc = add_row_col(Dc, new_row, new_col)
         self.D_cluster = scipy.sparse.csr_matrix(Dc)
             
@@ -250,27 +169,35 @@ class clique_cluster:
         self.C = [self.C[i] for i in range(len(self.C)) if i != c_i and i != c_j] + new_cluster
         self.last_links = [c_i, c_j]
         
-        self.linkage_index += 1
-        self.linkage_matrix.append([self.linkage_names[c_i], self.linkage_names[c_j], v_ij])
-        self.linkage_names = [self.linkage_names[i] for i in range(len(self.linkage_names)) if i != c_i and i != c_j] + [self.linkage_index]
+        #self.linkage_index += 1
+        #self.linkage_matrix.append([self.linkage_names[c_i], self.linkage_names[c_j], v_ij])
+        #self.linkage_names = [self.linkage_names[i] for i in range(len(self.linkage_names)) if i != c_i and i != c_j] + [self.linkage_index]
     
     
     def cluster(self, k):
-        clique_time = 0
-        dist_time = 0
         while len(self.C) > k:
             r,c,v = scipy.sparse.find(self.D_cluster)
-            v_sort = np.argsort(v)
+            
+            # We want to argsort the values of D breaking ties randomly
+            # Create an array of random numbers with the same shape as v
+            random_tiebreakers = np.random.rand(v.shape[0])
+
+            # Combine the original array and random tiebreakers into a structured array
+            structured_array = np.core.records.fromarrays([v, random_tiebreakers], 
+                                                        names='values,rand')
+
+            # Use np.argsort on the structured array to get the sorted indices
+            v_sort = np.argsort(structured_array, order=['values', 'rand'])
+            
+            # Now greedily find the smallest cost adjointment of clusters 
+            # which is able to form a clique
             start = 0
             boo = False
             while not boo and start < len(v):
                 min_v = v_sort[start]
                 min_r = r[min_v]
                 min_c = c[min_v]
-                start_time = time.time()
                 boo = self.check_clique(min_r, min_c)
-                end_time = time.time()
-                clique_time += end_time - start_time
                 
                 start += 1
             
@@ -283,10 +210,7 @@ class clique_cluster:
                     return
             
             self.cluster_update(min_r, min_c, v[min_v])
-            start_time = time.time()
             self.distance_update()
-            end_time = time.time()
-            dist_time += end_time - start_time
     
 
 
@@ -295,7 +219,8 @@ class clique_cluster:
 # must be a clique (i.e. every pair of items in the cluster is adjacent according to an input edge list)
 #
 #   INPUT:
-#       node_list -- list of integers describing nodes/items from which we'll form clusters 
+#       D -- (n x n) Distance matrix with REAL distances between items/nodes
+
 #       edge_list -- list of tuples (i,j) describing adjacency between the nodes in node_list
 #
 #   ATTRIBUTES:
@@ -304,17 +229,50 @@ class clique_cluster:
 #       G -- NetworkX graph formed from the input edge list 
 #
 #   METHODS:
-#       cluster(k) -- given a input number of clusters, k, run the hierarchical clustering algorithm 
-#                   on the inputs above until you've either found exactly k clusters, or otherwise 
-#                   the algorithm is stopped early because its no 
-#                   longer possible to join any more clusters!
-#
-#       sample(k, num_samples) -- for a given number of samples, compute a random k clustering and record the 
-#                                 results in an outupt data matrix 
+#       sample(k) -- compute a new random k clustering using a dummy distance matrix 
 #
 ##############################################################################################################################
-            
-            
+
+
+
+class random_clique_cluster(clique_cluster):
+    def __init__(self, D, edge_list):
+        self.D = D
+        self.G = nx.from_edgelist(edge_list)
+
+        self.C = [[i] for i in range(D.shape[1])]
+        self.C_copy = [[i] for i in range(D.shape[1])]
+        
+        # Dummy distance matrix -- every distance between clusters == 1
+        I = np.ones(D.shape)
+        np.fill_diagonal(I,0)
+        self.D_cluster = scipy.sparse.csr_matrix(I)
+        
+        # set to complete linkage, but since we want to join clusters randomly, 
+        # we'll set the distances so that this doesn't really matter
+        self.linkage = self.complete_linkage
+        self.threshold = np.inf
+        self.last_links = None
+        
+        # Pre-process so that cliques are easier to work with
+        # sets distances to 0 if no edge exists between items
+        self.distance_preprocess()
+        
+        self.D_cluster_copy = self.D_cluster.copy()
+        
+        
+        
+    def sample(self, k):
+        # reset clustering and distances:
+        self.C = copy.deepcopy(self.C_copy)
+        self.D_cluster = self.D_cluster_copy.copy()
+        self.last_links = None
+        
+        # and cluster:
+        self.cluster(k)
+        
+        
+'''
             
 class random_clique_cluster(clique_cluster):
     def __init__(self, node_list, edge_list):
@@ -322,9 +280,20 @@ class random_clique_cluster(clique_cluster):
         self.node_list = node_list
         self.G = nx.from_edgelist(edge_list)
         self.C = [[i] for i in range(len(node_list))]
+        self.last_links = None
         
-        # Dummy distance matrix
-        self.D = np.zeros((len(node_list), len(node_list)))
+        # set to complete linkage, but since we want to join clusters randomly, 
+        # we'll set the distances so that this doesn't really matter
+        self.linkage = self.complete_linkage
+        
+        # Dummy distance matrix -- every distance between clusters == 1
+        self.D = np.zeros((len(node_list), len(node_list))) + 1
+        
+        # Pre-process so that cliques are easier to work with
+        # sets distances to 0 if no edge exists between items
+        self.distance_preprocess()
+        
+        
                
     def cluster_update(self, c_i, c_j, v_ij):
         # Given indices of clusters c_i and c_j and the distance value v_ij between them,
@@ -333,10 +302,13 @@ class random_clique_cluster(clique_cluster):
         # union of their items. 
         new_cluster = [self.C[c_i] + self.C[c_j]]
         self.C = [self.C[i] for i in range(len(self.C)) if i != c_i and i != c_j] + new_cluster
+        self.last_links = [c_i, c_j]
+        
 
            
     def cluster(self,k):
         while len(self.C) > k:
+            # sample randomly from pairs of cliques
             stop = math.comb(len(self.C),2)
             boo = False
             start = 0
@@ -344,24 +316,27 @@ class random_clique_cluster(clique_cluster):
                 rand_comb = random.sample(range(len(self.C)), 2)
                 rand_r = rand_comb[0]
                 rand_c = rand_comb[1]
-                boo = self.check_clique_edges(rand_r, rand_c)
+                boo = self.check_clique(rand_r, rand_c)
                 start += 1
                 
                 
             if boo == False:
+                # If we couldn't find a clique, go through every possible combination 
+                # deterministically to make sure there really is nothing left
                 randlist = list(itertools.combinations(range(len(self.C)), 2))
                 order = np.random.choice(range(len(randlist)), len(randlist))
                 start2 = 0
                 while not boo and start2 < len(order):
                     rand_r = randlist[order[start2]][0]
                     rand_c = randlist[order[start2]][1]
-                    boo = self.check_clique_edges(rand_r, rand_c)
+                    boo = self.check_clique(rand_r, rand_c)
                     start2 += 1
                     
                 if boo == False:
                     return
             
             self.cluster_update(rand_r, rand_c, 0)
+            self.distance_update()
             
     
     def sample(self, k, num_samples):
@@ -380,7 +355,7 @@ class random_clique_cluster(clique_cluster):
             
             
 
-'''
+
 def random_seg_assignment(segs, sizes):
     shuffled = np.random.choice(range(len(segs)), len(segs), replace = False)
     C = []
