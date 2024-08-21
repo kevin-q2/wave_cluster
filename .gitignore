@@ -166,3 +166,9 @@ data/old/
 data/us_county_centers.txt
 data/us_county_daily.csv
 data/visualization/tl_2020_us_county/
+
+
+*.sh
+*error.txt
+*out.txt
+batch/county/data/
