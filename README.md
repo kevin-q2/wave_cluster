@@ -18,8 +18,14 @@ git clone https://github.com/your-username/your-repository.git
 pip install git+https://github.com/kevin-q2/wave_cluster.git#egg=wave_cluster
 ```
 
-We recommend simply cloning the entire repository in order to get all of the data and example notebooks, but installing just the 
+I'd recommend simply cloning the entire repository in order to get all of the data and example notebooks, but installing just the 
 code as a library is possible as well. 
+
+Wherever we use the wavefinder or wav segmentation method, we are comparing our segmentations to 
+another good segmentation method implemented here:
+https://github.com/covid19db/epidemiological-waves/
+
+Please refer to their paper/code for details on how to use it!
 
 ## Data
 Integral to our analyses and experiments is the data collected and provided in `data/` with attribution given to the following sources:
@@ -33,5 +39,17 @@ Integral to our analyses and experiments is the data collected and provided in `
      `state_centers.csv`, their [density](https://www.census.gov/data/tables/time-series/dec/density-data-text.html) of population in `us_state_density.csv` and their geographical
      [boundary lines](https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html) for visualization found in shape
      files in `visualization/tl_rd22_us_state/`
-  4. Finally we also include some shape files for [country visualization](https://public.opendatasoft.com/explore/dataset/world-administrative-boundaries/information/?flg=en-us&location=10,22.37175,114.10565&basemap=jawg.light) fand  
+  4. Finally we also include some shape files for [country visualization](https://public.opendatasoft.com/explore/dataset/world-administrative-boundaries/information/?flg=en-us&location=10,22.37175,114.10565&basemap=jawg.light) fand
+
+## Instructions
+
+Most of our analyses and experiments can be found in the jupyter notebooks in `examples/`. There you'll 
+find most of the code needed to run the segmentation and clustering algorithms, and produce 
+nice figures to view the results. 
+
+We note that these are often computationally intensive processes which cannot be confined to a notebook. 
+So often in the notebooks you'll see that we import data from the `batch/` folder. In `batch/` we include 
+sets of python scripts which can be run to collect that data. Again, those are often computationally intensive to run,
+so we also include folders `batch/state/data/` or `batch/country/data` with data for precomputed segmentations, pairwise 
+distance matrices, and cluster analysis information. 
      
