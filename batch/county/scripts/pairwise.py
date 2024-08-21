@@ -8,10 +8,11 @@ import multiprocessing as mp
 import scipy
 from scipy.sparse import save_npz
 
+
+sys.path.append("../wave_cluster")
+import wave_cluster as wc
 sys.path.append("batch/county/scripts/")
 from data_load import load_data
-sys.path.append("wave_cluster")
-import wave_cluster as wc
 
 
 

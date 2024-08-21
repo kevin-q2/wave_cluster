@@ -7,7 +7,7 @@ import networkx as nx
 from itertools import combinations
 
 
-sys.path.append("wave_cluster")
+sys.path.append("../wave_cluster")
 import wave_cluster as wc
 
 # import functions to run
@@ -18,7 +18,7 @@ sys.path.append("batch/state/scripts/")
 import subprocess
 
 # Run this external file
-sub_result = subprocess.run(["python", "data_analysis_load.py"])
+sub_result = subprocess.run(["python", "batch/state/scripts/data_analysis_load.py"])
 
 # And import a lot of variables from it which I use below 
 from data_analysis_load import *

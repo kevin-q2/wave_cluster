@@ -6,11 +6,13 @@ from itertools import combinations
 from scipy.sparse import csr_matrix
 from scipy.sparse import load_npz
 
+sys.path.append("../wave_cluster")
+import wave_cluster as wc
+
+
 sys.path.append("batch/county/scripts/")
 from data_load import load_data
 
-sys.path.append("wave_cluster")
-import wave_cluster as wc
 
 data = load_data()
 

@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import networkx as nx
 import itertools
-sys.path.append("wave_cluster")
+sys.path.append("../wave_cluster")
 import wave_cluster as wc
 import multiprocessing as mp
 from multiprocessing import Pool
@@ -18,7 +18,7 @@ sys.path.append("batch/state/scripts/")
 import subprocess
 
 # Run this external file
-sub_result = subprocess.run(["python", "data_analysis_load.py"])
+sub_result = subprocess.run(["python", "batch/state/scripts/data_analysis_load.py"])
 
 # And import a lot of variables from it which I use below 
 from data_analysis_load import *
@@ -54,8 +54,10 @@ def clustering_labels(param_pair):
 
 
 # Here I define the range of parameter values to test on 
-overlap_try = np.linspace(0.3,1,15)
-threshold_try = np.linspace(0,0.4,21)
+#overlap_try = np.linspace(0.3,1,15)
+#threshold_try = np.linspace(0,0.4,21)
+overlap_try = [0.1]
+threshold_try = [0.2]
 params = list(itertools.product(overlap_try, threshold_try))
 
 # set up empty matrices to store the results
@@ -77,11 +79,11 @@ for r in range(len(results)):
     
 # And save!
 uni_clusterings = pd.DataFrame(uni_clusterings, columns = wpool_uni.key_list)
-uni_clusterings.to_csv('batch/state/data/uni_param_clusterings.csv')
+#uni_clusterings.to_csv('batch/state/data/uni_param_clusterings.csv')
 
 sir_clusterings = pd.DataFrame(sir_clusterings, columns = wpool_sir.key_list)
-sir_clusterings.to_csv('batch/state/data/sir_param_clusterings.csv')
+#sir_clusterings.to_csv('batch/state/data/sir_param_clusterings.csv')
 
 wav_clusterings = pd.DataFrame(wav_clusterings, columns = wpool_wav.key_list)
-wav_clusterings.to_csv('batch/state/data/wav_param_clusterings.csv')
+#wav_clusterings.to_csv('batch/state/data/wav_param_clusterings.csv')
         

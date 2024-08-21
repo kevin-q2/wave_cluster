@@ -4,7 +4,7 @@ import pandas as pd
 import networkx as nx
 import time
 
-sys.path.append("wave_cluster")
+sys.path.append("../wave_cluster")
 import wave_cluster as wc
 
 # import functions to run
@@ -24,7 +24,7 @@ sub_result = subprocess.run(["python", "batch/county/scripts/data_analysis_load.
 from data_analysis_load import *
 ##########################################################################################################################################
 
-
+print('data loaded')
 # Specify segmentation setting and Perform clique clustering
 wpool = wpool_uni
 D = D_uni

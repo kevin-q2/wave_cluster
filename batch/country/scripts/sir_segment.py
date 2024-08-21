@@ -8,7 +8,7 @@ import multiprocessing as mp
 
 sys.path.append("batch/country/scripts/")
 from data_load import load_data
-sys.path.append("wave_cluster")
+sys.path.append("../wave_cluster")
 import wave_cluster as wc
 
 
@@ -105,11 +105,11 @@ est_cuts.replace(0, np.nan, inplace=True)
 est_cuts.iloc[0,:] = np.zeros(est_cuts.shape[1])
 
 if total_jobs > 1:
-    est_waves.to_csv("batch/country/data/sir_waves2_" + str(job_id) + ".csv")
-    est_cuts.to_csv("batch/country/data/sir_cuts2_" + str(job_id) + ".csv")
+    est_waves.to_csv("batch/country/data/sir_waves_" + str(job_id) + ".csv")
+    est_cuts.to_csv("batch/country/data/sir_cuts_" + str(job_id) + ".csv")
 else:
-    est_waves.to_csv("batch/country/data/sir_waves2.csv")
-    est_cuts.to_csv("batch/country/data/sir_cuts2.csv")
+    est_waves.to_csv("batch/country/data/sir_waves.csv")
+    est_cuts.to_csv("batch/country/data/sir_cuts.csv")
 
 
 #elbows = pd.DataFrame(elbows, columns = locations)

@@ -8,7 +8,7 @@ import multiprocessing as mp
 
 sys.path.append("batch/country/scripts/")
 from data_load import load_data
-sys.path.append("wave_cluster")
+sys.path.append("../wave_cluster")
 import wave_cluster as wc
 
 job_id = int(os.getenv('SGE_TASK_ID'))
@@ -72,9 +72,9 @@ est_cuts.iloc[0,:] = np.zeros(est_cuts.shape[1])
 
 
 if total_jobs > 1:
-    est_cuts.to_csv("batch/country/data/unimodal_cuts2_" + str(job_id) + ".csv")
+    est_cuts.to_csv("batch/country/data/unimodal_cuts_" + str(job_id) + ".csv")
 else:
-    est_cuts.to_csv("batch/country/data/unimodal_cuts2.csv")
+    est_cuts.to_csv("batch/country/data/unimodal_cuts.csv")
 
 #elbows = pd.DataFrame(elbows, columns = locations)
 #elbows.to_csv('batch/country/data/unimodal_elbows.csv')

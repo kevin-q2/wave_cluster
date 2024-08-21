@@ -4,7 +4,7 @@ import pandas as pd
 import networkx as nx
 import time
 
-sys.path.append("wave_cluster")
+sys.path.append("../wave_cluster")
 import wave_cluster as wc
 
 # import functions to run

@@ -6,10 +6,11 @@ import time
 from multiprocessing import Pool
 import multiprocessing as mp
 
+sys.path.append("../wave_cluster")
+import wave_cluster as wc
+
 sys.path.append("batch/county/scripts/")
 from data_load import load_data
-sys.path.append("wave_cluster")
-import wave_cluster as wc
 
 
 # I use this as a way of splitting the task up into different jobs 

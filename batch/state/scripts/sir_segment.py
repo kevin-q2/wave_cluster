@@ -8,7 +8,7 @@ import multiprocessing as mp
 
 sys.path.append("batch/state/scripts/")
 from data_load import load_data
-sys.path.append("wave_cluster")
+sys.path.append("../wave_cluster")
 import wave_cluster as wc
 
 

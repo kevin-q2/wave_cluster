@@ -1,7 +1,7 @@
 import sys
 import numpy as np
 import pandas as pd
-sys.path.append("wave_cluster")
+sys.path.append("../wave_cluster")
 import wave_cluster as wc
 
 

@@ -4,7 +4,7 @@ import pandas as pd
 import networkx as nx
 import time
 
-sys.path.append("wave_cluster")
+sys.path.append("../wave_cluster")
 import wave_cluster as wc
 
 
@@ -16,7 +16,7 @@ sys.path.append("batch/county/scripts/")
 import subprocess
 
 # Run this external file
-sub_result = subprocess.run(["python", "data_analysis_load.py"])
+sub_result = subprocess.run(["python", "batch/county/scripts/data_analysis_load.py"])
 # And import a lot of variables from it which I use below 
 from data_analysis_load import *
 
